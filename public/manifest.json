@@ -1,0 +1,17 @@
+{
+  "name": "Trip Split",
+  "short_name": "Trip Split",
+  "description": "Track trip expenses and settle fairly.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

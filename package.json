@@ -1,0 +1,53 @@
+{
+  "name": "trip-expense-splitter",
+  "version": "1.0.0",
+  "description": "A production-ready app to track trip expenses and calculate fair settlements",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.20.0",
+    "autoprefixer": "^10.4.16",
+    "axios": "^1.6.2",
+    "bcryptjs": "^2.4.3",
+    "chart.js": "^4.4.0",
+    "clsx": "^2.0.0",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^11.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "next": "^15.0.0",
+    "next-auth": "^5.0.0-beta",
+    "nodemailer": "^7.0.13",
+    "papaparse": "^5.4.1",
+    "pg": "^8.22.0",
+    "postcss": "^8.4.32",
+    "react": "^19.0.0",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^4.12.0",
+    "recharts": "^2.10.3",
+    "sharp": "^0.32.6",
+    "tailwind-merge": "^2.2.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.0",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.10.0",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "^15.0.0"
+  }
+}

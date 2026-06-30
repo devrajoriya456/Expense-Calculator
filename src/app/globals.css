@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply transition-colors duration-200;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-sans antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 dark:bg-slate-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-500;
+}
+
+/* Input styles */
+input[type="date"],
+input[type="time"],
+input[type="number"],
+textarea {
+  @apply bg-white dark:bg-slate-700 text-slate-900 dark:text-white;
+}
+
+/* Animation utilities */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Utility classes */
+.glass {
+  @apply bg-white/80 dark:bg-slate-800/80 backdrop-blur-md;
+}
+
+.gradient-primary {
+  @apply bg-gradient-to-r from-blue-500 to-cyan-500;
+}
+
+.gradient-success {
+  @apply bg-gradient-to-r from-green-500 to-emerald-500;
+}
+
+.gradient-danger {
+  @apply bg-gradient-to-r from-red-500 to-pink-500;
+}
