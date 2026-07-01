@@ -741,13 +741,13 @@ export default function TripDetailPage({ params }: TripDetailPageProps) {
         </div>
 
         {(isEndedTrip || isArchivedTrip) && settlement && (
-          <Card className="p-6 mb-8 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+          <Card className="p-6 mb-8 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 dark:text-white">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
                   Final Settlement
                 </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-slate-600 dark:text-slate-400 dark:text-white">
                   Total {formatCurrency(settlement.totalExpense, trip.currency)}{" "}
                   across {settlement.totalMembers} members.
                 </p>

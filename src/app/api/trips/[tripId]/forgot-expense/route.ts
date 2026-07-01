@@ -44,23 +44,47 @@ export async function POST(
       return NextResponse.json({ error: 'Paid by user is not an accepted trip member.' }, { status: 400 })
     }
 
+    // const now = new Date().toISOString()
+    // const { data: expense, error } = await supabaseAdmin
+    //   .from('expenses')
+    //   .insert({
+    //     trip_id: tripId,
+    //     paid_by: paidBy,
+    //     title,
+    //     category,
+    //     amount,
+    //     expense_date: expenseDate,
+    //     notes,
+    //     is_late_entry: true,
+    //     late_entry_added_by: user.id,
+    //     late_entry_added_at: now,
+    //   })
+    //   .select()
+    //   .single()
+
     const now = new Date().toISOString()
-    const { data: expense, error } = await supabaseAdmin
-      .from('expenses')
-      .insert({
-        trip_id: tripId,
-        paid_by: paidBy,
-        title,
-        category,
-        amount,
-        expense_date: expenseDate,
-        notes,
-        is_late_entry: true,
-        late_entry_added_by: user.id,
-        late_entry_added_at: now,
-      })
-      .select()
-      .single()
+
+const { data: expense, error } = await supabaseAdmin
+  .from("expenses")
+  .insert({
+    trip_id: tripId,
+    paid_by: paidBy,
+    title,
+    category,
+    amount,
+    expense_date: expenseDate,
+    notes,
+    is_late_entry: true,
+    late_entry_added_by: user.id,
+    late_entry_added_at: now,
+  })
+  .select()
+  .single()
+
+console.log("Insert error:", error)
+console.log("Inserted expense:", expense)
+
+console.log("Before calculateTripSettlement")
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -78,6 +102,9 @@ export async function POST(
       'Late expense added',
       'A forgotten expense was added and settlement was recalculated.',
     )
+   
+
+console.log("After calculateTripSettlement")
 
     return NextResponse.json({
       success: true,

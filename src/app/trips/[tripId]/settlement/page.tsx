@@ -324,7 +324,7 @@ export default function SettlementPage({ params }: SettlementPageProps) {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-100 dark:bg-slate-800">
+                <thead className="bg-slate-100 dark:bg-slate-800 dark:text-white">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Member</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Paid</th>
@@ -333,7 +333,7 @@ export default function SettlementPage({ params }: SettlementPageProps) {
                     <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700 dark:text-white">
                   {settlement.balances.map((balance) => {
                     const paid = settlement.summary.paidByMember[balance.memberId] || 0
                     return (
@@ -388,7 +388,7 @@ export default function SettlementPage({ params }: SettlementPageProps) {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-100 dark:bg-slate-800">
+                  <thead className="bg-slate-100 dark:bg-slate-800 dark:text-white">
                     <tr>
                       <th className="px-6 py-3 text-left text-sm font-semibold">From</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold">To</th>
@@ -507,7 +507,7 @@ export default function SettlementPage({ params }: SettlementPageProps) {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-100 dark:bg-slate-800">
+                  <thead className="bg-slate-100 dark:bg-slate-800 dark:text-white">
                     <tr>
                       <th className="px-6 py-3 text-left text-sm font-semibold">Title</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold">Amount</th>
@@ -515,7 +515,7 @@ export default function SettlementPage({ params }: SettlementPageProps) {
                       <th className="px-6 py-3 text-left text-sm font-semibold">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700 dark:text-white">
                     {expenses
                       .filter((expense) => expense.isLateEntry)
                       .map((expense) => (
