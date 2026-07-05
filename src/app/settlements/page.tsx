@@ -11,7 +11,7 @@ import { Trip } from '@/types'
 import { formatDate } from '@/utils/helpers'
 
 export default function SettlementsPage() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
@@ -57,7 +57,7 @@ export default function SettlementsPage() {
   if (loading) {
     return (
       <>
-        <Navbar />
+        <Navbar userEmail={session?.user?.email ?? undefined} />
         <div className="container mx-auto px-4 py-8">
           <Loading />
         </div>
@@ -67,7 +67,7 @@ export default function SettlementsPage() {
 
   return (
     <>
-      <Navbar />
+      <Navbar userEmail={session?.user?.email ?? undefined} />
 
       <div className="container mx-auto max-w-6xl px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
