@@ -6,6 +6,9 @@ export async function middleware(request: NextRequest) {
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
+
+  console.log("Middleware path:", request.nextUrl.pathname);
+  console.log("Middleware token:", token);
   const pathname = request.nextUrl.pathname;
 
   // API routes enforce their own auth and return JSON (401/403). Never redirect
