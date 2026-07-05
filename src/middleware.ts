@@ -1,14 +1,17 @@
-import { getToken } from "next-auth/jwt";
-import { NextRequest, NextResponse } from "next/server";
+import NextAuth from "next-auth";
+import { NextResponse } from "next/server";
+import authConfig from "@/lib/auth.config";
 
-export async function middleware(request: NextRequest) {
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+// Build a lightweight, edge-safe NextAuth instance from the shared base config.
+// Because it uses the SAME secret and cookie settings as the server handler in
+// nextauth-config.ts, `req.auth` reliably reflects the logged-in session — in
+// local dev AND behind Netlify's HTTPS proxy (where the browser stores the
+// `__Secure-authjs.session-token` cookie).
+const { auth } = NextAuth(authConfig);
 
-  console.log("Middleware path:", request.nextUrl.pathname);
-  console.log("Middleware token:", token);
+export default auth((request) => {
+  // req.auth is the decoded session (with user) when authenticated, else null.
+  const token = request.auth;
   const pathname = request.nextUrl.pathname;
 
   // API routes enforce their own auth and return JSON (401/403). Never redirect
@@ -43,7 +46,7 @@ export async function middleware(request: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 // Configure which routes to run middleware on.
 // Exclude Next internals and any path with a file extension (manifest.json,
