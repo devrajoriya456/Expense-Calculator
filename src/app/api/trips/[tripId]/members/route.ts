@@ -4,7 +4,7 @@ import { logActivity } from "@/lib/tripEvents";
 import { mapMember } from "@/lib/mappers";
 import { supabaseAdmin } from "@/lib/supabase";
 import {
-  ApiError,
+  handleApiError,
   requireTripMember,
   requireTripOwnerOrAdmin,
   requireTripNotArchived,
@@ -48,7 +48,8 @@ export async function GET(
     //   .order("joined_at", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/[tripId]/members/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -56,10 +57,7 @@ export async function GET(
       data: (data || []).map(mapMember),
     });
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500;
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch members";
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error, "Failed to fetch members");
   }
 }
 
@@ -90,10 +88,7 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500;
-    const message =
-      error instanceof Error ? error.message : "Failed to send invitation";
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error, "Failed to send invitation");
   }
 }
 
@@ -123,7 +118,8 @@ export async function DELETE(
       .maybeSingle();
 
     if (memberError) {
-      return NextResponse.json({ error: memberError.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/[tripId]/members/route.ts', memberError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
     if (!member) {
       return NextResponse.json({ error: "Member not found." }, { status: 404 });
@@ -138,8 +134,9 @@ export async function DELETE(
         .eq("is_deleted", false);
 
       if (countError) {
+        console.error("[api] members: owner count", countError);
         return NextResponse.json(
-          { error: countError.message },
+          { error: "Something went wrong." },
           { status: 500 },
         );
       }
@@ -160,8 +157,9 @@ export async function DELETE(
         .eq("is_deleted", false);
 
     if (paidExpenseError) {
+      console.error("[api] members: paid expense check", paidExpenseError);
       return NextResponse.json(
-        { error: paidExpenseError.message },
+        { error: "Something went wrong." },
         { status: 500 },
       );
     }
@@ -185,8 +183,9 @@ export async function DELETE(
         .limit(1);
 
     if (participantError) {
+      console.error("[api] members: participant check", participantError);
       return NextResponse.json(
-        { error: participantError.message },
+        { error: "Something went wrong." },
         { status: 500 },
       );
     }
@@ -211,16 +210,14 @@ export async function DELETE(
       .eq("trip_id", tripId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/[tripId]/members/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(tripId, user.id, "member_removed", { memberId });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500;
-    const message =
-      error instanceof Error ? error.message : "Failed to delete member";
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error, "Failed to delete member");
   }
 }

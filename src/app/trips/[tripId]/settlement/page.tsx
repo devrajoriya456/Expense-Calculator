@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { Card, Button, Loading, EmptyState, Badge } from '@/components/UI'
-import { formatCurrency, formatDate } from '@/utils/helpers'
+import { formatCurrency, formatDate, sanitizeCsvCell } from '@/utils/helpers'
 import { Expense, Trip, SettlementSummary } from '@/types'
 import Link from 'next/link'
 import jsPDF from 'jspdf'
@@ -18,6 +18,7 @@ interface SettlementPageProps {
 
 export default function SettlementPage({ params }: SettlementPageProps) {
   const { data: session, status } = useSession()
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id
   const router = useRouter()
   const [tripId, setTripId] = useState<string | null>(null)
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -47,7 +48,9 @@ export default function SettlementPage({ params }: SettlementPageProps) {
       // Fetch trip
       const tripRes = await fetch('/api/trips')
       const tripData = await tripRes.json()
-      const currentTrip = tripData.data.find((t: Trip) => t.id === tripId)
+      const currentTrip = Array.isArray(tripData?.data)
+        ? tripData.data.find((t: Trip) => t.id === tripId)
+        : undefined
       setTrip(currentTrip)
 
       // Calculate settlement
@@ -143,7 +146,8 @@ export default function SettlementPage({ params }: SettlementPageProps) {
         ]),
     ]
 
-    const csv = Papa.unparse(data)
+    const safeData = data.map((row) => row.map(sanitizeCsvCell))
+    const csv = Papa.unparse(safeData)
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -174,7 +178,12 @@ export default function SettlementPage({ params }: SettlementPageProps) {
   }
 
   const copySettlementText = async () => {
-    await navigator.clipboard.writeText(getSettlementText())
+    try {
+      await navigator.clipboard.writeText(getSettlementText())
+    } catch {
+      // Clipboard can be unavailable (insecure context / denied permission).
+      console.error('Clipboard not available')
+    }
   }
 
   const shareWhatsApp = () => {
@@ -184,13 +193,42 @@ export default function SettlementPage({ params }: SettlementPageProps) {
 
   const markSettlementPaid = async (transfer: { from: string; fromName: string; to: string; toName: string; amount: number }) => {
     try {
-      await fetch(`/api/trips/${tripId}/settlement/mark-paid`, {
+      const res = await fetch(`/api/trips/${tripId}/settlement/mark-paid`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transfer),
       })
-    } catch (error) {
-      console.error('Failed to mark settlement paid:', error)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || 'Could not mark this settlement as paid. Please try again.')
+        return
+      }
+      // Refetch so the status badge reflects the saved state.
+      await fetchData()
+    } catch {
+      alert('Network error while marking settlement as paid. Please try again.')
+    }
+  }
+
+  // Receiver accepts or rejects a payment the payer marked as paid.
+  const confirmSettlement = async (
+    transfer: { from: string; to: string; amount: number },
+    action: 'accept' | 'reject',
+  ) => {
+    try {
+      const res = await fetch(`/api/trips/${tripId}/settlement/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...transfer, action }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || 'Could not update this payment. Please try again.')
+        return
+      }
+      await fetchData()
+    } catch {
+      alert('Network error. Please try again.')
     }
   }
 
@@ -217,7 +255,8 @@ export default function SettlementPage({ params }: SettlementPageProps) {
         ]
       }),
     ]
-    const csv = Papa.unparse(data)
+    const safeData = data.map((row) => row.map(sanitizeCsvCell))
+    const csv = Papa.unparse(safeData)
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -397,7 +436,11 @@ export default function SettlementPage({ params }: SettlementPageProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {settlement.settlements.map((transfer, idx) => (
+                    {settlement.settlements.map((transfer, idx) => {
+                      const isPayer = currentUserId === transfer.from
+                      const isReceiver = currentUserId === transfer.to
+                      const st = transfer.status || 'unpaid'
+                      return (
                       <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
                           {transfer.fromName}
@@ -411,37 +454,69 @@ export default function SettlementPage({ params }: SettlementPageProps) {
                         <td className="px-6 py-4">
                           <Badge
                             variant={
-                              transfer.status === 'confirmed'
+                              st === 'paid' || st === 'confirmed'
                                 ? 'success'
-                                : transfer.status === 'paid'
+                                : st === 'pending'
                                   ? 'info'
                                   : 'primary'
                             }
                           >
-                            {transfer.status || 'pending'}
+                            {st === 'paid' || st === 'confirmed'
+                              ? 'Paid'
+                              : st === 'pending'
+                                ? 'Awaiting confirmation'
+                                : 'Unpaid'}
                           </Badge>
-                          {settlement.paymentDetails[transfer.to]?.upiId && (
+                          {settlement.paymentDetails[transfer.to]?.upiId && st === 'unpaid' && (
                             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                               UPI: {settlement.paymentDetails[transfer.to].upiId}
                             </p>
                           )}
                           <div className="mt-2 flex flex-wrap gap-3">
-                            <button
-                              onClick={() => markSettlementPaid(transfer)}
-                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                            >
-                              Mark Paid
-                            </button>
-                            <button
-                              onClick={() => sendReminder(transfer)}
-                              className="text-sm text-green-600 hover:text-green-700"
-                            >
-                              WhatsApp Reminder
-                            </button>
+                            {/* Payer marks the transfer as paid (awaits receiver confirmation) */}
+                            {st === 'unpaid' && isPayer && (
+                              <button
+                                onClick={() => markSettlementPaid(transfer)}
+                                className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                            {/* Receiver confirms or rejects the claimed payment */}
+                            {st === 'pending' && isReceiver && (
+                              <>
+                                <button
+                                  onClick={() => confirmSettlement(transfer, 'accept')}
+                                  className="text-sm font-medium text-green-600 hover:text-green-700"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => confirmSettlement(transfer, 'reject')}
+                                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {st === 'pending' && !isReceiver && (
+                              <span className="text-sm text-slate-500 dark:text-slate-400">
+                                Waiting for {transfer.toName} to confirm
+                              </span>
+                            )}
+                            {st === 'unpaid' && (
+                              <button
+                                onClick={() => sendReminder(transfer)}
+                                className="text-sm text-green-600 hover:text-green-700"
+                              >
+                                WhatsApp Reminder
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

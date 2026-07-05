@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ApiError, emailRegex, getCurrentUser, normalizeEmail } from '@/lib/tripAuth'
+import { emailRegex, getCurrentUser, handleApiError, normalizeEmail } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const mapContact = (row: any) => ({
@@ -21,14 +21,13 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] contacts:list', error)
+      return NextResponse.json({ error: 'Failed to load contacts.' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data: (data || []).map(mapContact) })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch contacts'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch contacts')
   }
 }
 
@@ -53,7 +52,8 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (lookupError) {
-      return NextResponse.json({ error: lookupError.message }, { status: 500 })
+      console.error('[api] contacts:lookup', lookupError)
+      return NextResponse.json({ error: 'Failed to save contact.' }, { status: 500 })
     }
 
     const query = existing
@@ -72,13 +72,12 @@ export async function POST(request: NextRequest) {
     const { data, error } = await query
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] contacts:save', error)
+      return NextResponse.json({ error: 'Failed to save contact.' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data: mapContact(data) }, { status: 201 })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to save contact'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to save contact')
   }
 }

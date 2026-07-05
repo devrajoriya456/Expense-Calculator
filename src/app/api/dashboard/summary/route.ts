@@ -1,23 +1,9 @@
 import { NextResponse } from 'next/server'
-import { ApiError, getCurrentUser } from '@/lib/tripAuth'
+import { getCurrentUser, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { mapExpense, mapMember } from '@/lib/mappers'
-import SettlementCalculator from '@/lib/settlementCalculator'
+import { calculateTripSettlement } from '@/lib/tripData'
 
-const memberSelect = `
-  id,
-  trip_id,
-  user_id,
-  role,
-  joined_at,
-  users (
-    id,
-    name,
-    email,
-    profile_image,
-    upi_id
-  )
-`
+type CurrencyTotals = { currency: string; owes: number; receives: number; net: number }
 
 export async function GET() {
   try {
@@ -29,79 +15,90 @@ export async function GET() {
       .eq('is_deleted', false)
 
     if (membershipError) {
-      return NextResponse.json({ error: membershipError.message }, { status: 500 })
+      console.error('[api] dashboard summary: memberships', membershipError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     const tripIds = [...new Set((memberships || []).map((item) => item.trip_id))]
+    const emptyData = {
+      totalOwes: 0,
+      totalReceives: 0,
+      netBalance: 0,
+      activeTripPendingBalance: 0,
+      tripsOwing: [] as string[],
+      tripsReceiving: [] as string[],
+      byCurrency: [] as CurrencyTotals[],
+      mixedCurrencies: false,
+    }
     if (tripIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: { totalOwes: 0, totalReceives: 0, netBalance: 0, activeTripPendingBalance: 0, tripsOwing: [], tripsReceiving: [] },
-      })
+      return NextResponse.json({ success: true, data: emptyData })
     }
 
     const { data: trips, error: tripsError } = await supabaseAdmin
       .from('trips')
-      .select('id,name,status,is_deleted')
+      .select('id,name,status,currency,is_deleted')
       .in('id', tripIds)
       .eq('is_deleted', false)
 
     if (tripsError) {
-      return NextResponse.json({ error: tripsError.message }, { status: 500 })
+      console.error('[api] dashboard summary: trips', tripsError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
-    let totalOwes = 0
-    let totalReceives = 0
+    // Track balances per currency — summing across currencies is meaningless.
+    const perCurrency = new Map<string, CurrencyTotals>()
     let activeTripPendingBalance = 0
     const tripsOwing: string[] = []
     const tripsReceiving: string[] = []
 
     for (const trip of trips || []) {
-      const [{ data: expenses }, { data: members }] = await Promise.all([
-        supabaseAdmin
-          .from('expenses')
-          .select('*, expense_participants(user_id, share)')
-          .eq('trip_id', trip.id)
-          .eq('is_deleted', false)
-          .neq('approval_status', 'rejected'),
-        supabaseAdmin
-          .from('trip_members')
-          .select(memberSelect)
-          .eq('trip_id', trip.id)
-          .eq('is_deleted', false),
-      ])
+      const settlement = await calculateTripSettlement(trip.id)
+      const currency = trip.currency || '₹'
+      const userBalance =
+        settlement.balances.find((balance) => balance.memberId === user.id)?.amount || 0
 
-      const settlement = SettlementCalculator.calculateSettlement(
-        (expenses || []).map(mapExpense),
-        (members || []).map(mapMember),
-      )
-      const userBalance = settlement.balances.find((balance) => balance.memberId === user.id)?.amount || 0
+      const bucket = perCurrency.get(currency) || { currency, owes: 0, receives: 0, net: 0 }
       if (userBalance > 0) {
-        totalReceives += userBalance
+        bucket.receives += userBalance
         tripsReceiving.push(trip.id)
       } else if (userBalance < 0) {
-        totalOwes += Math.abs(userBalance)
+        bucket.owes += Math.abs(userBalance)
         tripsOwing.push(trip.id)
       }
+      bucket.net += userBalance
+      perCurrency.set(currency, bucket)
+
       if (trip.status === 'active' || trip.status === 'reopened') {
         activeTripPendingBalance += userBalance
       }
     }
 
+    const byCurrency: CurrencyTotals[] = Array.from(perCurrency.values()).map((b) => ({
+      currency: b.currency,
+      owes: Number(b.owes.toFixed(2)),
+      receives: Number(b.receives.toFixed(2)),
+      net: Number(b.net.toFixed(2)),
+    }))
+
+    const mixedCurrencies = byCurrency.length > 1
+    // Flat totals remain valid only for the single-currency case; when mixed,
+    // clients should render `byCurrency` instead of summing across symbols.
+    const primary = byCurrency[0]
+
     return NextResponse.json({
       success: true,
       data: {
-        totalOwes: Number(totalOwes.toFixed(2)),
-        totalReceives: Number(totalReceives.toFixed(2)),
-        netBalance: Number((totalReceives - totalOwes).toFixed(2)),
+        totalOwes: mixedCurrencies ? 0 : primary?.owes || 0,
+        totalReceives: mixedCurrencies ? 0 : primary?.receives || 0,
+        netBalance: mixedCurrencies ? 0 : primary?.net || 0,
         activeTripPendingBalance: Number(activeTripPendingBalance.toFixed(2)),
         tripsOwing,
         tripsReceiving,
+        byCurrency,
+        mixedCurrencies,
       },
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch dashboard summary'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch dashboard summary');
   }
 }

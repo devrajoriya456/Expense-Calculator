@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ApiError, getCurrentUser } from '@/lib/tripAuth'
+import { getCurrentUser, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const feedbackTypes = new Set(['bug', 'wrong_calculation', 'login_issue', 'payment_settlement', 'other'])
@@ -25,13 +25,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/feedback/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to submit feedback'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to submit feedback');
   }
 }

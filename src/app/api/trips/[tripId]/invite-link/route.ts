@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/lib/tripEvents'
-import { ApiError, requireTripOwnerOrAdmin, requireTripNotArchived } from '@/lib/tripAuth'
+import { requireTripOwnerOrAdmin, requireTripNotArchived, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const getBaseUrl = (request: NextRequest) =>
@@ -25,7 +25,8 @@ export async function GET(
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/invite-link/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -39,9 +40,7 @@ export async function GET(
         : null,
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch invite link'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch invite link');
   }
 }
 
@@ -66,7 +65,8 @@ export async function POST(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/invite-link/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(tripId, user.id, 'invite_link_created', { token: data.token })
@@ -80,8 +80,6 @@ export async function POST(
       },
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to create invite link'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to create invite link');
   }
 }

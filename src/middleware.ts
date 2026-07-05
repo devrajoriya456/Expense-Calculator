@@ -8,17 +8,30 @@ export async function middleware(request: NextRequest) {
   });
   const pathname = request.nextUrl.pathname;
 
-  // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/signup", "/api/auth"];
+  // API routes enforce their own auth and return JSON (401/403). Never redirect
+  // them to the HTML login page — that would break client fetch() calls.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
 
-  // Check if route is public
-  const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route),
-  );
+  // Public pages that don't require authentication.
+  // "/" must match exactly (every path startsWith "/"), while prefixes like
+  // "/invite" cover their subpaths.
+  const exactPublicRoutes = ["/", "/login", "/signup"];
+  const prefixPublicRoutes = ["/invite"];
 
-  // If route requires auth and user is not authenticated, redirect to login
+  const isPublicRoute =
+    exactPublicRoutes.includes(pathname) ||
+    prefixPublicRoutes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`),
+    );
+
+  // If a page requires auth and the user is not authenticated, redirect to login
   if (!isPublicRoute && !token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    // Preserve where they were headed so they return after signing in.
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // If user is authenticated and tries to access login, redirect to dashboard
@@ -29,7 +42,10 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configure which routes to run middleware on
+// Configure which routes to run middleware on.
+// Exclude Next internals and any path with a file extension (manifest.json,
+// sw.js, icon.svg, images, etc.) so static assets — which browsers often fetch
+// without credentials — are never redirected to the login page.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

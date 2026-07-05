@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logActivity, notifyTripMembers } from '@/lib/tripEvents'
-import { ApiError, getCurrentUser, normalizeEmail } from '@/lib/tripAuth'
+import { getCurrentUser, normalizeEmail, handleApiError } from '@/lib/tripAuth'
 
 export async function POST(
   _request: NextRequest,
@@ -18,7 +18,8 @@ export async function POST(
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/invitations/[invitationId]/accept/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
     if (!invitation) {
       return NextResponse.json({ error: 'Invitation not found.' }, { status: 404 })
@@ -38,7 +39,8 @@ export async function POST(
       .maybeSingle()
 
     if (memberLookupError) {
-      return NextResponse.json({ error: memberLookupError.message }, { status: 500 })
+      console.error('[api] src/app/api/invitations/[invitationId]/accept/route.ts', memberLookupError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     if (existingMember?.is_deleted) {
@@ -53,7 +55,8 @@ export async function POST(
         .eq('id', existingMember.id)
 
       if (restoreError) {
-        return NextResponse.json({ error: restoreError.message }, { status: 500 })
+        console.error('[api] src/app/api/invitations/[invitationId]/accept/route.ts', restoreError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
       }
     } else if (!existingMember) {
       const { error: insertError } = await supabaseAdmin.from('trip_members').insert({
@@ -63,7 +66,8 @@ export async function POST(
       })
 
       if (insertError) {
-        return NextResponse.json({ error: insertError.message }, { status: 500 })
+        console.error('[api] src/app/api/invitations/[invitationId]/accept/route.ts', insertError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
       }
     }
 
@@ -73,7 +77,8 @@ export async function POST(
       .eq('id', invitation.id)
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      console.error('[api] src/app/api/invitations/[invitationId]/accept/route.ts', updateError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(invitation.trip_id, user.id, 'invitation_accepted', {
@@ -92,8 +97,6 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to accept invitation'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to accept invitation');
   }
 }

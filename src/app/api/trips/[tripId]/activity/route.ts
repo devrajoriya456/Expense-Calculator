@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mapActivityLog } from '@/lib/mappers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { ApiError, requireTripMember } from '@/lib/tripAuth'
+import { requireTripMember, handleApiError } from '@/lib/tripAuth'
 
 export async function GET(
   _request: NextRequest,
@@ -30,13 +30,12 @@ export async function GET(
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/activity/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data: (data || []).map(mapActivityLog) })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch activity'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch activity');
   }
 }

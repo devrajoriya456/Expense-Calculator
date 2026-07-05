@@ -2,9 +2,32 @@
  * Utility functions for the application
  */
 
-// Format currency
+// Format currency (with thousands separators)
 export const formatCurrency = (amount: number, currency = '₹'): string => {
-  return `${currency}${amount.toFixed(2)}`
+  const safeAmount = Number.isFinite(amount) ? amount : 0
+  const formatted = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(safeAmount)
+  return `${currency}${formatted}`
+}
+
+// Only allow http(s) URLs; returns null for anything else (blocks javascript:, data:, etc.)
+export const safeExternalUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null
+  try {
+    const parsed = new URL(url.trim())
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null
+  } catch {
+    return null
+  }
+}
+
+// Escape a value for CSV to prevent spreadsheet formula injection
+export const sanitizeCsvCell = (value: unknown): string => {
+  const str = value == null ? '' : String(value)
+  // Prefix cells starting with formula triggers so Excel/Sheets treat them as text
+  return /^[=+\-@\t\r]/.test(str) ? `'${str}` : str
 }
 
 // Format date

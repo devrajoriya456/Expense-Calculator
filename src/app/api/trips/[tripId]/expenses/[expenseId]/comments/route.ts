@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity, notifyTripMembers } from '@/lib/tripEvents'
-import { ApiError, requireTripMember } from '@/lib/tripAuth'
+import { requireExpenseInTrip, requireTripMember, requireTripNotArchived, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(
@@ -10,6 +10,7 @@ export async function GET(
   try {
     const { tripId, expenseId } = await params
     await requireTripMember(tripId)
+    await requireExpenseInTrip(tripId, expenseId)
 
     const { data, error } = await supabaseAdmin
       .from('expense_comments')
@@ -18,7 +19,8 @@ export async function GET(
       .order('created_at', { ascending: true })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/expenses/[expenseId]/comments/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -34,9 +36,7 @@ export async function GET(
       }),
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch comments'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch comments');
   }
 }
 
@@ -46,10 +46,11 @@ export async function POST(
 ) {
   try {
     const { tripId, expenseId } = await params
-    const { user, role } = await requireTripMember(tripId)
+    const { user, role } = await requireTripNotArchived(tripId)
     if (role === 'viewer') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    await requireExpenseInTrip(tripId, expenseId)
 
     const body = await request.json()
     const comment = String(body.comment || '').trim()
@@ -64,7 +65,8 @@ export async function POST(
     })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/expenses/[expenseId]/comments/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(tripId, user.id, 'expense_commented', { expenseId })
@@ -72,8 +74,6 @@ export async function POST(
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to add comment'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to add comment');
   }
 }

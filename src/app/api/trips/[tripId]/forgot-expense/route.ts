@@ -3,7 +3,7 @@ import { calculateTripSettlement } from '@/lib/tripData'
 import { logActivity, notifyTripMembers } from '@/lib/tripEvents'
 import { mapExpense } from '@/lib/mappers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { ApiError, getTrip, getTripRole, requireTripMember } from '@/lib/tripAuth'
+import { getTrip, getTripRole, requireTripMember, handleApiError } from '@/lib/tripAuth'
 
 export async function POST(
   request: NextRequest,
@@ -81,13 +81,9 @@ const { data: expense, error } = await supabaseAdmin
   .select()
   .single()
 
-console.log("Insert error:", error)
-console.log("Inserted expense:", expense)
-
-console.log("Before calculateTripSettlement")
-
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/forgot-expense/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     const settlement = await calculateTripSettlement(tripId)
@@ -102,9 +98,6 @@ console.log("Before calculateTripSettlement")
       'Late expense added',
       'A forgotten expense was added and settlement was recalculated.',
     )
-   
-
-console.log("After calculateTripSettlement")
 
     return NextResponse.json({
       success: true,
@@ -115,8 +108,6 @@ console.log("After calculateTripSettlement")
       message: 'Late expense added and settlement recalculated.',
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to add forgotten expense'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to add forgotten expense');
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { mapTrip } from "@/lib/mappers";
-import { ApiError, getCurrentUser } from "@/lib/tripAuth";
+import { getCurrentUser, handleApiError } from "@/lib/tripAuth";
 import { logActivity } from "@/lib/tripEvents";
 
 export async function GET(_request: NextRequest) {
@@ -16,7 +16,8 @@ export async function GET(_request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (createdError) {
-      return NextResponse.json({ error: createdError.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/route.ts', createdError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     const { data: memberships, error: membershipError } = await supabaseAdmin
@@ -26,7 +27,8 @@ export async function GET(_request: NextRequest) {
       .eq("is_deleted", false);
 
     if (membershipError) {
-      return NextResponse.json({ error: membershipError.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/route.ts', membershipError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     const memberTripIds = [...new Set((memberships || []).map((item) => item.trip_id))];
@@ -40,7 +42,8 @@ export async function GET(_request: NextRequest) {
         .eq("is_deleted", false);
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[api] src/app/api/trips/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
       }
       joinedTrips = data || [];
     }
@@ -57,10 +60,7 @@ export async function GET(_request: NextRequest) {
         .map(mapTrip),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch trips";
-    const status = error instanceof ApiError ? error.status : 500;
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error, "Failed to fetch trips");
   }
 }
 
@@ -110,7 +110,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     const { error: memberError } = await supabaseAdmin
@@ -126,7 +127,8 @@ export async function POST(request: NextRequest) {
         .from("trips")
         .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: user.id })
         .eq("id", trip.id);
-      return NextResponse.json({ error: memberError.message }, { status: 500 });
+      console.error('[api] src/app/api/trips/route.ts', memberError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(trip.id, user.id, "trip_created", { tripName: name });
@@ -136,9 +138,6 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to create trip";
-    const status = error instanceof ApiError ? error.status : 500;
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error, "Failed to create trip");
   }
 }

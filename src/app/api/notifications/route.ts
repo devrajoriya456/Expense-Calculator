@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { ApiError, getCurrentUser } from '@/lib/tripAuth'
+import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUser, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
@@ -13,7 +13,8 @@ export async function GET() {
       .limit(20)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/notifications/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -29,8 +30,35 @@ export async function GET() {
       })),
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch notifications'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch notifications');
+  }
+}
+
+// Mark notifications as read. Body: { ids?: string[] } — omit ids to mark all.
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    const body = await request.json().catch(() => ({}))
+    const ids: string[] | undefined = Array.isArray(body?.ids) ? body.ids : undefined
+
+    let query = supabaseAdmin
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .is('read_at', null)
+
+    if (ids && ids.length) {
+      query = query.in('id', ids)
+    }
+
+    const { error } = await query
+    if (error) {
+      console.error('[api] notifications mark-read', error)
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return handleApiError(error, 'Failed to update notifications')
   }
 }
