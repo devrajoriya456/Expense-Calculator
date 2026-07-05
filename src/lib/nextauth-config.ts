@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import authConfig from "@/lib/auth.config";
 import { getSupabaseConfigError, supabaseAdmin } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rateLimit";
 
@@ -9,12 +9,12 @@ export const {
   handlers: { GET, POST },
   auth,
 } = NextAuth({
-  trustHost: true,
+  // Shared edge-safe base (trustHost, secret, session, pages, Google provider,
+  // jwt/session callbacks). The Node-only Credentials provider and the
+  // Supabase-backed signIn callback are added on top here.
+  ...authConfig,
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_ID || "",
-      clientSecret: process.env.GOOGLE_SECRET || "",
-    }),
+    ...authConfig.providers,
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -69,6 +69,9 @@ export const {
     }),
   ],
   callbacks: {
+    // Preserve the edge-safe jwt/session shaping from the shared config, and
+    // add the Node-only signIn callback (Supabase account linking) on top.
+    ...authConfig.callbacks,
     async signIn({ user, account, profile }: any) {
       if (account?.provider === "google") {
         // Google must have verified the email before we trust it for
@@ -112,24 +115,5 @@ export const {
       }
       return true;
     },
-    async jwt({ token, user }: any) {
-      if (user?.id) {
-        token.id = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }: any) {
-      if (session.user) {
-        session.user.id = token.id || token.sub;
-      }
-      return session;
-    },
   },
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  secret: process.env.NEXTAUTH_SECRET,
 });
