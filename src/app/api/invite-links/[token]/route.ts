@@ -13,7 +13,8 @@ export async function GET(
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[api] src/app/api/invite-links/[token]/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
   }
   const trip = Array.isArray(data?.trips) ? data?.trips[0] : data?.trips
   if (!data || data.revoked_at || !trip || trip.is_deleted) {

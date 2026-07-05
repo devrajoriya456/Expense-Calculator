@@ -12,6 +12,7 @@ interface NavbarProps {
 export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false)
   const [isDark, setIsDark] = React.useState(false)
+  const [unreadCount, setUnreadCount] = React.useState(0)
   const handleSignOut = onSignOut ?? (() => signOut({ callbackUrl: '/login' }))
 
   React.useEffect(() => {
@@ -22,6 +23,30 @@ export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
     setIsDark(shouldUseDark)
     document.documentElement.classList.toggle('dark', shouldUseDark)
   }, [])
+
+  // Poll unread notifications so the badge reflects pending confirmations etc.
+  React.useEffect(() => {
+    if (!userEmail) return
+    let active = true
+    const load = async () => {
+      try {
+        const res = await fetch('/api/notifications')
+        if (!res.ok) return
+        const data = await res.json()
+        if (active && data?.success) {
+          setUnreadCount((data.data || []).filter((n: { readAt?: string }) => !n.readAt).length)
+        }
+      } catch {
+        // ignore transient network errors
+      }
+    }
+    load()
+    const interval = setInterval(load, 60000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [userEmail])
 
   const toggleDarkMode = () => {
     const next = !isDark
@@ -70,9 +95,14 @@ export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
             </Link>
             <Link
               href="/notifications"
-              className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition"
+              className="relative text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition"
             >
               Notifications
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-4 min-w-[18px] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-semibold leading-none text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
           </div>
 

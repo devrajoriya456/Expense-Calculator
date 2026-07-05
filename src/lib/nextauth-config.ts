@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { getSupabaseConfigError, supabaseAdmin } from "@/lib/supabase";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const {
   handlers: { GET, POST },
@@ -31,6 +32,12 @@ export const {
 
         const email = String(credentials.email).trim().toLowerCase();
         const password = String(credentials.password);
+
+        // Throttle repeated attempts against the same account to blunt
+        // brute-force / credential-stuffing. (In-memory; see rateLimit.ts.)
+        if (!rateLimit(`login:${email}`, 10, 15 * 60 * 1000)) {
+          throw new Error("Too many attempts. Please try again later.");
+        }
 
         const { data: user, error } = await supabaseAdmin
           .from("users")
@@ -61,8 +68,13 @@ export const {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }: any) {
+    async signIn({ user, account, profile }: any) {
       if (account?.provider === "google") {
+        // Google must have verified the email before we trust it for
+        // account linking, otherwise a spoofed email could take over an account.
+        if (profile && profile.email_verified === false) {
+          return false;
+        }
         const email = user.email?.toLowerCase();
         if (!email) return false;
 

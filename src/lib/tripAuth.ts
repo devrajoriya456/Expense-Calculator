@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getSupabaseConfigError, supabaseAdmin } from '@/lib/supabase'
 
@@ -11,6 +12,21 @@ export class ApiError extends Error {
     super(message)
     this.status = status
   }
+}
+
+/**
+ * Convert any thrown value into a safe JSON error response.
+ * - ApiError messages are developer-authored and safe to expose.
+ * - Everything else (Supabase/Postgres/internal errors) is logged server-side
+ *   and returned to the client as a generic message to avoid leaking schema,
+ *   constraint, or stack details.
+ */
+export function handleApiError(error: unknown, fallbackMessage = 'Something went wrong.') {
+  if (error instanceof ApiError) {
+    return NextResponse.json({ error: error.message }, { status: error.status })
+  }
+  console.error(`[api] ${fallbackMessage}`, error)
+  return NextResponse.json({ error: fallbackMessage }, { status: 500 })
 }
 
 export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -105,6 +121,27 @@ export async function getTrip(tripId: string) {
 
 export async function ensureTripExists(tripId: string) {
   await getTrip(tripId)
+}
+
+// Verify an expense actually belongs to the given trip (prevents cross-trip
+// IDOR when an expenseId from another trip is passed to a trip-scoped route).
+export async function requireExpenseInTrip(tripId: string, expenseId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('expenses')
+    .select('id')
+    .eq('id', expenseId)
+    .eq('trip_id', tripId)
+    .eq('is_deleted', false)
+    .maybeSingle()
+
+  if (error) {
+    throw new ApiError(error.message, 500)
+  }
+  if (!data) {
+    throw new ApiError('Expense not found', 404)
+  }
+
+  return data.id as string
 }
 
 export async function requireTripNotArchived(tripId: string) {

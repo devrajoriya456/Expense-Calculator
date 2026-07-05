@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { logActivity, notifyTripMembers } from '@/lib/tripEvents'
-import { ApiError, getCurrentUser } from '@/lib/tripAuth'
+import { getCurrentUser, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(
@@ -18,7 +18,8 @@ export async function POST(
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/invite-links/[token]/join/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
     const trip = Array.isArray(inviteLink?.trips) ? inviteLink?.trips[0] : inviteLink?.trips
     if (!inviteLink || inviteLink.revoked_at || !trip || trip.is_deleted || trip.status === 'archived') {
@@ -33,7 +34,8 @@ export async function POST(
       .maybeSingle()
 
     if (memberLookupError) {
-      return NextResponse.json({ error: memberLookupError.message }, { status: 500 })
+      console.error('[api] src/app/api/invite-links/[token]/join/route.ts', memberLookupError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     if (existingMember?.is_deleted) {
@@ -48,7 +50,8 @@ export async function POST(
         .eq('id', existingMember.id)
 
       if (reactivateError) {
-        return NextResponse.json({ error: reactivateError.message }, { status: 500 })
+        console.error('[api] src/app/api/invite-links/[token]/join/route.ts', reactivateError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
       }
     } else if (!existingMember) {
       const { error: insertError } = await supabaseAdmin.from('trip_members').insert({
@@ -58,7 +61,8 @@ export async function POST(
       })
 
       if (insertError) {
-        return NextResponse.json({ error: insertError.message }, { status: 500 })
+        console.error('[api] src/app/api/invite-links/[token]/join/route.ts', insertError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
       }
     }
 
@@ -75,8 +79,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: { tripId: inviteLink.trip_id } })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to join trip'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to join trip');
   }
 }

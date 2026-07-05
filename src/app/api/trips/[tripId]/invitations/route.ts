@@ -3,7 +3,7 @@ import { sendInvitationEmail } from '@/lib/email'
 import { createTripInvitation } from '@/lib/invitations'
 import { mapInvitation } from '@/lib/mappers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { ApiError, requireTripNotArchived, requireTripOwnerOrAdmin } from '@/lib/tripAuth'
+import { requireTripNotArchived, requireTripOwnerOrAdmin, handleApiError } from '@/lib/tripAuth'
 
 const invitationSelect = `
   id,
@@ -38,14 +38,13 @@ export async function GET(
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/invitations/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data: (data || []).map(mapInvitation) })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch invitations'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch invitations');
   }
 }
 
@@ -86,8 +85,6 @@ export async function POST(
       { status: 201 },
     )
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to send invitation'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to send invitation');
   }
 }

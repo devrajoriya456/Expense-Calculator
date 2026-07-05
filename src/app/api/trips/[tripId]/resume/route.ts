@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity, notifyTripMembers } from '@/lib/tripEvents'
 import { supabaseAdmin } from '@/lib/supabase'
-import { ApiError, getTrip, requireTripOwnerOrAdmin } from '@/lib/tripAuth'
+import { getTrip, requireTripOwnerOrAdmin, handleApiError } from '@/lib/tripAuth'
 import { mapTrip } from '@/lib/mappers'
 
 export async function POST(
@@ -29,7 +29,8 @@ export async function POST(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/resume/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(tripId, user.id, 'trip_resumed')
@@ -42,8 +43,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: mapTrip(updatedTrip) })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to resume trip'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to resume trip');
   }
 }

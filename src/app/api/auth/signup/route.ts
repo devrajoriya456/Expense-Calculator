@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { getSupabaseConfigError, supabaseAdmin } from '@/lib/supabase'
+import { handleApiError } from '@/lib/tripAuth'
+import { getClientIp, rateLimit } from '@/lib/rateLimit'
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -16,6 +18,16 @@ const validatePassword = (password: string) => {
 
 export async function POST(request: NextRequest) {
   try {
+    // Throttle signups per IP to limit automated account creation.
+    // Generous enough for shared IPs (offices / CGNAT), strict enough to
+    // blunt bulk bot signups. Tune down + move to a shared store for scale.
+    if (!rateLimit(`signup:${getClientIp(request)}`, 20, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many sign-up attempts. Please try again later.' },
+        { status: 429 },
+      )
+    }
+
     const configError = getSupabaseConfigError()
     if (configError) {
       return NextResponse.json({ error: configError }, { status: 500 })
@@ -52,7 +64,8 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (lookupError) {
-      return NextResponse.json({ error: lookupError.message }, { status: 500 })
+      console.error('[api] signup:lookup', lookupError)
+      return NextResponse.json({ error: 'Failed to create account.' }, { status: 500 })
     }
     if (existingUser) {
       return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 })
@@ -71,7 +84,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      console.error('[api] signup:insert', insertError)
+      return NextResponse.json({ error: 'Failed to create account.' }, { status: 500 })
     }
 
     return NextResponse.json(
@@ -87,7 +101,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create account.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return handleApiError(error, 'Failed to create account.')
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logActivity } from '@/lib/tripEvents'
-import { ApiError, getCurrentUser, normalizeEmail } from '@/lib/tripAuth'
+import { getCurrentUser, normalizeEmail, handleApiError } from '@/lib/tripAuth'
 
 export async function POST(
   _request: NextRequest,
@@ -18,7 +18,8 @@ export async function POST(
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/invitations/[invitationId]/reject/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
     if (!invitation) {
       return NextResponse.json({ error: 'Invitation not found.' }, { status: 404 })
@@ -36,7 +37,8 @@ export async function POST(
       .eq('id', invitation.id)
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      console.error('[api] src/app/api/invitations/[invitationId]/reject/route.ts', updateError);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(invitation.trip_id, user.id, 'invitation_rejected', {
@@ -45,8 +47,6 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to reject invitation'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to reject invitation');
   }
 }

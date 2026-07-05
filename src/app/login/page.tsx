@@ -14,11 +14,17 @@ function LoginContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Only allow relative, same-origin callback paths to avoid open redirects.
+  const rawCallback = searchParams.get('callbackUrl') || ''
+  const callbackUrl = rawCallback.startsWith('/') && !rawCallback.startsWith('//')
+    ? rawCallback
+    : '/dashboard'
+
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError('')
     try {
-      await signIn('google', { callbackUrl: '/dashboard' })
+      await signIn('google', { callbackUrl })
     } catch {
       setError('Failed to sign in with Google')
       setLoading(false)
@@ -41,7 +47,7 @@ function LoginContent() {
       })
 
       if (result?.ok) {
-        router.push('/dashboard')
+        router.push(callbackUrl)
         router.refresh()
       } else {
         setError('The email or password you entered is incorrect.')

@@ -34,45 +34,90 @@ export class SettlementCalculator {
   ): Balance[] {
     const memberPaid: Record<string, number> = {}
     const memberOwes: Record<string, number> = {}
-    
+    const memberNames: Record<string, string> = {}
+
     // Initialize all members with zero paid amount
     members.forEach((member) => {
       memberPaid[member.id] = 0
       memberOwes[member.id] = 0
+      memberNames[member.id] = member.name
     })
+
+    // Equal splits are shared only among current members.
+    const equalSplitMembers = members
 
     expenses.forEach((expense) => {
       const amountMinor = this.toMinorUnit(expense.amount)
+      // A payer who is no longer an active member (e.g. removed after paying)
+      // must still be credited, otherwise balances won't sum to zero.
       memberPaid[expense.paidBy] = (memberPaid[expense.paidBy] || 0) + amountMinor
+      if (!(expense.paidBy in memberNames)) {
+        memberNames[expense.paidBy] = 'Former member'
+      }
 
       if (expense.participants?.length) {
         expense.participants.forEach((participant) => {
           memberOwes[participant.userId] =
             (memberOwes[participant.userId] || 0) + this.toMinorUnit(participant.share)
+          if (!(participant.userId in memberNames)) {
+            memberNames[participant.userId] = 'Former member'
+          }
         })
         return
       }
 
-      const baseShare = Math.floor(amountMinor / members.length)
-      const remainder = amountMinor % members.length
-      members.forEach((member, index) => {
+      if (equalSplitMembers.length === 0) return
+      const baseShare = Math.floor(amountMinor / equalSplitMembers.length)
+      const remainder = amountMinor % equalSplitMembers.length
+      equalSplitMembers.forEach((member, index) => {
         memberOwes[member.id] = (memberOwes[member.id] || 0) + baseShare + (index < remainder ? 1 : 0)
       })
     })
 
-    const balances: Balance[] = members.map((member) => {
-      const paid = memberPaid[member.id] || 0
-      const owed = memberOwes[member.id] || 0
+    // Include everyone who paid or owes, not just current members, so the
+    // balances always reconcile to zero.
+    const allIds = new Set<string>([
+      ...Object.keys(memberPaid),
+      ...Object.keys(memberOwes),
+    ])
+
+    const balances: Balance[] = Array.from(allIds).map((id) => {
+      const paid = memberPaid[id] || 0
+      const owed = memberOwes[id] || 0
       const balance = paid - owed
 
       return {
-        memberId: member.id,
-        memberName: member.name,
+        memberId: id,
+        memberName: memberNames[id] || 'Unknown',
         amount: this.fromMinorUnit(balance),
       }
     })
 
     return balances
+  }
+
+  /**
+   * Apply settled transfers to balances so a member's NET balance reflects
+   * money actually paid. Each settled transfer (from -> to, amount) discharges
+   * that much of the payer's debt and the receiver's credit, moving both toward
+   * zero. Unsettled transfers leave balances unchanged. Returns new balances.
+   */
+  static applySettledPayments(
+    balances: Balance[],
+    settledTransfers: Array<{ from: string; to: string; amount: number }>,
+  ): Balance[] {
+    const net = new Map(balances.map((b) => [b.memberId, this.toMinorUnit(b.amount)]))
+
+    for (const t of settledTransfers) {
+      const amountMinor = this.toMinorUnit(t.amount)
+      net.set(t.from, (net.get(t.from) ?? 0) + amountMinor)
+      net.set(t.to, (net.get(t.to) ?? 0) - amountMinor)
+    }
+
+    return balances.map((b) => ({
+      ...b,
+      amount: this.fromMinorUnit(net.get(b.memberId) ?? this.toMinorUnit(b.amount)),
+    }))
   }
 
   /**
@@ -137,6 +182,7 @@ export class SettlementCalculator {
         totalExpense: 0,
         totalMembers: members.length,
         perPersonShare: 0,
+        balanced: true,
         balances: members.map((member) => ({
           memberId: member.id,
           memberName: member.name,
@@ -161,8 +207,18 @@ export class SettlementCalculator {
     const balances = this.calculateBalances(expenses, members)
     const settlements = this.generateSettlements(balances)
 
-    // Verify settlement accuracy
-    this.verifySettlement(balances, settlements)
+    // Verify settlement accuracy and expose the result via `balanced` rather
+    // than throwing — one trip with imperfect legacy data must not crash an
+    // aggregate view (e.g. the dashboard summary over every trip). Log loudly
+    // so the imbalance is observable server-side.
+    const balanced = this.verifySettlement(balances, settlements)
+    if (!balanced) {
+      console.error('[settlement] verification failed', {
+        totalMembers: members.length,
+        totalExpenses: expenses.length,
+        balanceSum: balances.reduce((sum, b) => sum + b.amount, 0),
+      })
+    }
 
     // Build summary
     const memberPaid: Record<string, number> = {}
@@ -191,6 +247,7 @@ export class SettlementCalculator {
       totalExpense,
       totalMembers: members.length,
       perPersonShare,
+      balanced,
       balances,
       settlements,
       paymentDetails: Object.fromEntries(

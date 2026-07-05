@@ -283,31 +283,40 @@ export default function DashboardPage() {
             </Card>
             <Card className="p-6">
               <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Net Balance</p>
-              <p className={`text-3xl font-bold mt-2 ${(summary?.netBalance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {formatCurrency(summary?.netBalance || 0)}
-              </p>
+              {summary?.mixedCurrencies ? (
+                <p className="text-lg font-semibold mt-2 text-slate-900 dark:text-white">Multiple currencies</p>
+              ) : (
+                <p className={`text-3xl font-bold mt-2 ${(summary?.byCurrency[0]?.net || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {formatCurrency(summary?.byCurrency[0]?.net || 0, summary?.byCurrency[0]?.currency)}
+                </p>
+              )}
             </Card>
           </div>
         )}
 
-        {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card className="p-5">
-              <p className="text-sm text-slate-600 dark:text-slate-400">You owe</p>
-              <p className="mt-1 text-2xl font-semibold text-red-600">{formatCurrency(summary.totalOwes)}</p>
-            </Card>
-            <Card className="p-5">
-              <p className="text-sm text-slate-600 dark:text-slate-400">You will receive</p>
-              <p className="mt-1 text-2xl font-semibold text-green-600">{formatCurrency(summary.totalReceives)}</p>
-            </Card>
-            <Card className="p-5">
-              <p className="text-sm text-slate-600 dark:text-slate-400">Net balance</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{formatCurrency(summary.netBalance)}</p>
-            </Card>
-            <Card className="p-5">
-              <p className="text-sm text-slate-600 dark:text-slate-400">Active pending</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{formatCurrency(summary.activeTripPendingBalance)}</p>
-            </Card>
+        {summary && summary.byCurrency.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {summary.mixedCurrencies && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Balances are shown per currency — amounts in different currencies are not combined.
+              </p>
+            )}
+            {summary.byCurrency.map((bucket) => (
+              <div key={bucket.currency} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-5">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">You owe</p>
+                  <p className="mt-1 text-2xl font-semibold text-red-600">{formatCurrency(bucket.owes, bucket.currency)}</p>
+                </Card>
+                <Card className="p-5">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">You will receive</p>
+                  <p className="mt-1 text-2xl font-semibold text-green-600">{formatCurrency(bucket.receives, bucket.currency)}</p>
+                </Card>
+                <Card className="p-5">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Net balance</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{formatCurrency(bucket.net, bucket.currency)}</p>
+                </Card>
+              </div>
+            ))}
           </div>
         )}
 

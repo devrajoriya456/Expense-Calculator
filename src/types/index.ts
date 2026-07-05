@@ -135,6 +135,13 @@ export interface Notification {
   createdAt: string
 }
 
+export interface CurrencyTotals {
+  currency: string
+  owes: number
+  receives: number
+  net: number
+}
+
 export interface DashboardBalanceSummary {
   totalOwes: number
   totalReceives: number
@@ -142,6 +149,8 @@ export interface DashboardBalanceSummary {
   activeTripPendingBalance: number
   tripsOwing: string[]
   tripsReceiving: string[]
+  byCurrency: CurrencyTotals[]
+  mixedCurrencies: boolean
 }
 
 // Settlement Types
@@ -157,13 +166,16 @@ export interface Settlement {
   to: string
   toName: string
   amount: number
-  status?: 'pending' | 'paid' | 'confirmed'
+  // unpaid = nothing recorded; pending = payer marked, awaiting receiver;
+  // paid/confirmed = receiver accepted (balance settles).
+  status?: 'unpaid' | 'pending' | 'paid' | 'confirmed'
 }
 
 export interface SettlementSummary {
   totalExpense: number
   totalMembers: number
   perPersonShare: number
+  balanced?: boolean
   balances: Balance[]
   settlements: Settlement[]
   paymentDetails: Record<string, { name: string; upiId?: string }>

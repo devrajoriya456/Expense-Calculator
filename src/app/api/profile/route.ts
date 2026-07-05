@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { ApiError, getCurrentUser } from '@/lib/tripAuth'
+import { getCurrentUser, handleApiError } from '@/lib/tripAuth'
 
 const currencyOptions = new Set(['₹', '$', '€', '£', 'د.إ'])
 
@@ -21,9 +21,7 @@ export async function GET() {
       },
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to fetch profile'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to fetch profile');
   }
 }
 
@@ -58,7 +56,8 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/profile/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -74,8 +73,6 @@ export async function PUT(request: NextRequest) {
       },
     })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to update profile'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to update profile');
   }
 }

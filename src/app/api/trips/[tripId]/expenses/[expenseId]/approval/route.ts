@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity, notifyTripMembers } from '@/lib/tripEvents'
-import { ApiError, requireTripOwnerOrAdmin } from '@/lib/tripAuth'
+import { requireTripOwnerOrAdmin, handleApiError } from '@/lib/tripAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(
@@ -25,7 +25,8 @@ export async function POST(
       .eq('is_deleted', false)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[api] src/app/api/trips/[tripId]/expenses/[expenseId]/approval/route.ts', error);
+      return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
     }
 
     await logActivity(tripId, user.id, status === 'approved' ? 'expense_approved' : 'expense_rejected', {
@@ -40,8 +41,6 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    const status = error instanceof ApiError ? error.status : 500
-    const message = error instanceof Error ? error.message : 'Failed to update approval'
-    return NextResponse.json({ error: message }, { status })
+    return handleApiError(error, 'Failed to update approval');
   }
 }

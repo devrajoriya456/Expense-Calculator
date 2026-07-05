@@ -13,7 +13,7 @@ import {
   Select,
   Badge,
 } from "@/components/UI";
-import { formatCurrency, formatDate } from "@/utils/helpers";
+import { formatCurrency, formatDate, safeExternalUrl } from "@/utils/helpers";
 import {
   ActivityLog,
   Contact,
@@ -967,9 +967,9 @@ export default function TripDetailPage({ params }: TripDetailPageProps) {
                                   Late Entry
                                 </span>
                               )}
-                              {expense.receiptUrl && (
+                              {safeExternalUrl(expense.receiptUrl) && (
                                 <a
-                                  href={expense.receiptUrl}
+                                  href={safeExternalUrl(expense.receiptUrl) as string}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="ml-2 text-xs text-blue-600 hover:text-blue-700"
@@ -982,7 +982,7 @@ export default function TripDetailPage({ params }: TripDetailPageProps) {
                               {expense.category}
                             </td>
                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
-                              {formatCurrency(expense.amount)}
+                              {formatCurrency(expense.amount, trip.currency)}
                             </td>
                             <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
                               {member?.name}
@@ -1243,9 +1243,9 @@ export default function TripDetailPage({ params }: TripDetailPageProps) {
                                     Rejected
                                   </span>
                                 )}
-                                {expense.receiptUrl && (
+                                {safeExternalUrl(expense.receiptUrl) && (
                                   <a
-                                    href={expense.receiptUrl}
+                                    href={safeExternalUrl(expense.receiptUrl) as string}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="ml-2 text-xs text-blue-600 hover:text-blue-700"
