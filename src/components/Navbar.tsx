@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { signOut } from 'next-auth/react'
+import { signOutAction } from '@/app/actions/auth'
 
 interface NavbarProps {
   userEmail?: string
@@ -13,19 +13,6 @@ export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false)
   const [isDark, setIsDark] = React.useState(false)
   const [unreadCount, setUnreadCount] = React.useState(0)
-  const handleSignOut =
-    onSignOut ??
-    (async () => {
-      // Clear the Auth.js session server-side WITHOUT letting next-auth do its
-      // own immediate redirect. Awaiting redirect:false guarantees the
-      // sign-out POST (and the Set-Cookie that deletes the session token) has
-      // fully completed before we navigate. We then hard-navigate to /login so
-      // the follow-up request carries no session cookie — otherwise the
-      // middleware would see a still-present token and bounce us back to
-      // /dashboard, leaving the user apparently still logged in.
-      await signOut({ redirect: false })
-      window.location.href = '/login'
-    })
 
   React.useEffect(() => {
     const storedTheme = localStorage.getItem('theme')
@@ -149,12 +136,23 @@ export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
                     >
                       Profile
                     </Link>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                    >
-                      Sign Out
-                    </button>
+                    {onSignOut ? (
+                      <button
+                        onClick={onSignOut}
+                        className="w-full text-left px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                      >
+                        Sign Out
+                      </button>
+                    ) : (
+                      <form action={signOutAction}>
+                        <button
+                          type="submit"
+                          className="w-full text-left px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                        >
+                          Sign Out
+                        </button>
+                      </form>
+                    )}
                   </div>
                 )}
               </div>
