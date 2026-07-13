@@ -8,6 +8,8 @@ import { rateLimit } from "@/lib/rateLimit";
 export const {
   handlers: { GET, POST },
   auth,
+  signIn,
+  signOut,
 } = NextAuth({
   // Shared edge-safe base (trustHost, secret, session, pages, Google provider,
   // jwt/session callbacks). The Node-only Credentials provider and the
