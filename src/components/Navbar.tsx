@@ -2,14 +2,12 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { signOutAction } from '@/app/actions/auth'
 
 interface NavbarProps {
   userEmail?: string
-  onSignOut?: () => void
 }
 
-export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
+export default function Navbar({ userEmail }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false)
   const [isDark, setIsDark] = React.useState(false)
   const [unreadCount, setUnreadCount] = React.useState(0)
@@ -136,23 +134,17 @@ export default function Navbar({ userEmail, onSignOut }: NavbarProps) {
                     >
                       Profile
                     </Link>
-                    {onSignOut ? (
+                    {/* Single logout flow: POST to the /api/auth/signout route
+                        handler, which expires the session cookie on its own 303
+                        redirect response (reliable on Netlify) and lands on /login. */}
+                    <form action="/api/auth/signout" method="post">
                       <button
-                        onClick={onSignOut}
+                        type="submit"
                         className="w-full text-left px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                       >
                         Sign Out
                       </button>
-                    ) : (
-                      <form action={signOutAction}>
-                        <button
-                          type="submit"
-                          className="w-full text-left px-4 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                        >
-                          Sign Out
-                        </button>
-                      </form>
-                    )}
+                    </form>
                   </div>
                 )}
               </div>
